@@ -1,3 +1,5 @@
+import https from 'https';
+
 export default async function handler(req, res) {
   const { url } = req.query;
 
@@ -6,21 +8,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0" // emulate browser
+    https.get(url, (response) => {
+      const redirectedURL = response.headers.location || url;
+
+      // চেক করো id= আছে কিনা
+      const match = redirectedURL.match(/id=(\d{6,})/);
+      if (match && match[1]) {
+        res.json({ uid: match[1] });
+      } else {
+        res.status(404).json({ error: "UID not found in redirect." });
       }
+    }).on("error", (err) => {
+      res.status(500).json({ error: "Request failed", details: err.message });
     });
-
-    const html = await response.text();
-    const match = html.match(/entity_id":"(\d{6,})"/);
-
-    if (match && match[1]) {
-      return res.json({ uid: match[1] });
-    } else {
-      return res.status(404).json({ error: "UID not found" });
-    }
   } catch (err) {
-    return res.status(500).json({ error: "Fetch failed", details: err.message });
+    res.status(500).json({ error: "Unexpected error", details: err.message });
   }
 }
